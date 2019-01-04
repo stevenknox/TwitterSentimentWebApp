@@ -1,0 +1,17 @@
+{
+  "ProjectFilePath": "c:\\Users\\Steven\\Source\\TwitterSentimentWebApp\\TwitterSentimentWebApp.App\\TwitterSentimentWebApp.App.csproj",
+  "TargetFramework": "netstandard2.0",
+  "TagHelpers": [],
+  "Configuration": {
+    "ConfigurationName": "Blazor-0.1",
+    "LanguageVersion": "Experimental",
+    "Extensions": [
+      {
+        "ExtensionName": "Blazor.AngleSharp-0.1"
+      },
+      {
+        "ExtensionName": "Blazor-0.1"
+      }
+    ]
+  }
+}

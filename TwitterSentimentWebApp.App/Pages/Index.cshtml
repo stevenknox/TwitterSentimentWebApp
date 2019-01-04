@@ -1,0 +1,162 @@
+﻿@page "/"
+@using System.Text.RegularExpressions
+@using TwitterSentiment
+@inject TwitterClient twitterClient
+@inject TextAnalyticsClient analyticsClient
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h1 class="text-center text-muted">
+            Twitter Sentiment Analysis
+        </h1>
+    </div>
+</div>
+<div class="container">
+    <br />
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+            <div class="card card-sm">
+                <div class="card-body row no-gutters align-items-center">
+                    <div class="col-auto">
+                        <i class="fas fa-search h4 text-body"></i>
+                    </div>
+                    <!--end of col-->
+                    <div class="col">
+                        <input class="form-control form-control-lg form-control-borderless @InputCssClass" type="search" placeholder="Enter twitter username" bind="@username" />
+                    </div>
+                    <!--end of col-->
+                    <div class="col-auto">
+                        <button class="btn btn-lg btn-primary" onclick="@Search" onkeypress="@KeyPress">Search</button>
+                    </div>
+                    <!--end of col-->
+                </div>
+            </div>
+        </div>
+        <!--end of col-->
+    </div>
+    <div class="alert alert-danger" role="alert" hidden="@HideError">@Error</div>
+    <div class="loader" hidden="@HideLoader">Loading...</div>
+    @if (TweetsLoaded && HideLoader)
+    {
+        <div class="alert alert-@GetSentimentText(@Average, true) mt-5" role="alert">
+        Overall this timeline is <strong>@GetSentimentText(@Average)</strong>
+        </div>
+        <table class="table mt-5">
+            <tbody>
+                @foreach (var tweet in TweetSentiment)
+                {
+                    <tr>
+                        <td>@tweet.Text</td>
+                        <td>
+                            <button type="button" class="btn btn-@GetSentimentText(@tweet.Score, true) btn-block">@GetSentimentText(@tweet.Score)</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+@functions {
+    IEnumerable<TweetsWithSentiment> TweetSentiment;
+    bool TweetsLoaded => TweetSentiment != null;
+    bool HideLoader = true;
+    string username;
+    double Average;
+
+    string Error = "";
+    bool HideError => String.IsNullOrWhiteSpace(Error); 
+    string InputCssClass => HideError ? "" : "is-invalid"; 
+
+    private async Task Search()
+    {
+        var isValid = IsUsernameValid(username);
+
+        if(isValid)
+        {
+            await ToggleLoader();
+
+            if(username != "demo")
+                await DoSearch();
+            else
+                await DoDemoSearch();
+
+            await ToggleLoader();
+        }
+        else
+        {
+           Error = "A username cannot be longer than 15 characters and contain only alphanumeric characters (letters A-Z, numbers 0-9) or underscores";
+           await RefreshState();
+        }
+        
+    }
+
+    private async Task DoSearch()
+    {
+        var tweets = await twitterClient.GetTimeline(username);
+        var sentiment = await analyticsClient.AnalyzeSentiment(tweets.ProjectToDocuments());
+
+        TweetSentiment = tweets.Combine(sentiment);
+
+        Average = TweetSentiment.Select(s=> s.Score).Average();
+    }
+
+    private async Task DoDemoSearch()
+    {
+       await Task.Delay(3000);
+
+       TweetSentiment = new List<TweetsWithSentiment> {
+            new TweetsWithSentiment("1", "Wholeschool is awesome!", 0.9),
+            new TweetsWithSentiment("1", "Wholeschool staff are the best", 0.7),
+            new TweetsWithSentiment("1", "Moodle is a great product", 0.6),
+            new TweetsWithSentiment("1", "Wholeschool are a software company", 0.5),
+            new TweetsWithSentiment("1", "NodeJs is pants!", 0.1),
+        };
+
+        Average = TweetSentiment.Select(s=> s.Score).Average();
+    }
+
+    private async Task ToggleLoader()
+    {
+       HideLoader = !HideLoader;
+       base.StateHasChanged();
+    }
+    
+    private async Task RefreshState()
+    {
+        base.StateHasChanged();
+    }
+
+    private bool IsUsernameValid(string username)
+    {
+        Error = "";
+
+        if(string.IsNullOrWhiteSpace(username))
+            return false;
+
+        return new Regex(@"^@?(\w){1,15}$")
+                .Match(username)
+                .Success;
+    }
+
+    private string GetSentimentText(double score, bool isCssClass = false)
+    {
+        switch (score)
+        {
+            case var s when (s >= 0.8): return isCssClass ? "success" : "Very Positive";
+            case var s when (s > 0.5): return isCssClass ? "success" : "Positive";
+            case var s when (s == 0.5): return isCssClass ? "default" : "Neutral";
+            case var s when (s <= 0.2): return isCssClass ? "danger" : "Very Negative";
+            case var s when (s < 0.5): return isCssClass ? "danger" : "Negative";
+            default: return isCssClass ? "success" : "default";
+        }
+    }
+
+    async Task KeyPress(UIKeyboardEventArgs e)
+    {
+        Console.WriteLine("KEY:" + e.Key);
+        if (e.Key == "Enter")
+        {
+            await Search();
+        }
+    }
+}
